@@ -175,7 +175,6 @@ const callYoutbeApi = async (): Promise<void> => {
       joinData = popularData.value[i].title;
       videoTitles.value.push(joinData);
     }
-    console.log(`タイトルは${videoTitles.value}`);
     activateBtn.value = false;
   } catch (error) {
     console.log(error);
@@ -195,11 +194,7 @@ const callGpts = async (): Promise<void> => {
         popularVideoTitles: videoTitles.value,
       }
     );
-    console.log("gptからのレスポンス");
-    console.log(response);
-    console.log("gptResponse.valueの中身");
     gptResponse.value = response.data;
-    console.log(gptResponse.value);
   } catch (error) {
     console.log(error);
   }
@@ -216,6 +211,8 @@ const formatNumber = (number: number) => {
     return number;
   }
 };
+let retryCount = 0;
+
 //チャンネルIDの取得
 const getChannelId = async (): Promise<void> => {
   if (urlCheck(channelUrl.value)) {
@@ -224,15 +221,23 @@ const getChannelId = async (): Promise<void> => {
         `${
           process.env.VUE_APP_BASE_URL
         }/api/getChannelId?channelUrl=${encodeURIComponent(channelUrl.value)}`,
-        { timeout: 5000 } // タイムアウトを5秒に設定
+        { timeout: 15000 }
       );
-      console.log("API Response:", response.data);
+
       if (!response.data.channelId) {
-        alert("チャンネルが見つかりませんでした。");
-        channelId.value = "";
+        if (retryCount >= 5) {
+          alert("チャンネルが見つかりませんでした。");
+          channelId.value = "";
+          retryCount = 0; // リトライカウントをリセット
+        } else {
+          console.log("retrying");
+          retryCount += 1;
+          getChannelId();
+        }
       } else {
         channelId.value = response.data.channelId;
         activateBtnYoutube.value = false;
+        retryCount = 0; // リトライカウントをリセット
       }
     } catch (error) {
       alert(`エラーが発生しました: ${error}`);
@@ -240,6 +245,7 @@ const getChannelId = async (): Promise<void> => {
     }
   }
 };
+
 const urlCheck = (url: string) => {
   if (typeof url !== "string") {
     return null;
